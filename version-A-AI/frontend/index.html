@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Focus Time Tracking — Version A</title>
+    <!-- AI-generated style: single file, React + Babel from a CDN, no build step. -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      :root {
+        --bg: #0b1020; --panel: #161c2e; --line: #283149;
+        --txt: #e7ecf5; --muted: #9aa6c0; --pri: #6d5efc; --ok: #22c55e; --danger: #ef4444;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background:
+        radial-gradient(1200px 600px at 80% -10%, #1d2540 0%, var(--bg) 60%); color: var(--txt); }
+      .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+      header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+      h1 { font-size: 22px; margin: 0; letter-spacing: .3px; }
+      .tag { font-size: 12px; color: var(--muted); border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .card { background: linear-gradient(180deg, #1a2136, #141a2b); border: 1px solid var(--line);
+        border-radius: 16px; padding: 18px; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+      .card.wide { grid-column: 1 / -1; }
+      h2 { font-size: 15px; margin: 0 0 12px; color: #c7d0e6; }
+      input { background: #0d1322; color: var(--txt); border: 1px solid var(--line);
+        border-radius: 10px; padding: 9px 11px; width: 100%; outline: none; }
+      input:focus { border-color: var(--pri); }
+      button { background: var(--pri); color: #fff; border: none; border-radius: 10px;
+        padding: 9px 13px; cursor: pointer; font-size: 13px; font-weight: 600; }
+      button:hover { filter: brightness(1.08); }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      .ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+      .stop { background: var(--danger); }
+      .row { display: flex; gap: 8px; margin-bottom: 12px; }
+      ul { list-style: none; padding: 0; margin: 0; }
+      li { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 9px 10px; border-radius: 10px; }
+      li + li { border-top: 1px solid rgba(40,49,73,.5); }
+      li.sel { background: #21294480; }
+      .pill { font-size: 11px; color: var(--ok); border: 1px solid #1f4031; background: #112418;
+        padding: 2px 7px; border-radius: 999px; }
+      .muted { color: var(--muted); font-size: 13px; }
+      .done { text-decoration: line-through; color: var(--muted); }
+      .bar { height: 12px; background: #0d1322; border-radius: 6px; overflow: hidden; }
+      .fill { height: 100%; background: linear-gradient(90deg, #6d5efc, #22c55e); }
+      .rep { display: grid; grid-template-columns: 150px 1fr 70px; gap: 10px; align-items: center; margin: 6px 0; }
+      .clickable { cursor: pointer; }
+      .err { color: var(--danger); font-size: 13px; }
+      @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } .rep { grid-template-columns: 110px 1fr 60px; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const API = "http://localhost:8000";
+      const { useState, useEffect } = React;
+
+      function api(path, method = "GET", body) {
+        const token = localStorage.getItem("token_a");
+        return fetch(API + path, {
+          method,
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+          body: body ? JSON.stringify(body) : undefined,
+        }).then(async (r) => {
+          if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).detail) || "Request error");
+          return r.status === 204 ? null : r.json();
+        });
+      }
+      const fmt = (s) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+
+      function Auth({ onAuthed }) {
+        const [mode, setMode] = useState("login");
+        const [email, setEmail] = useState(""); const [pw, setPw] = useState(""); const [err, setErr] = useState("");
+        async function go() {
+          setErr("");
+          try {
+            if (mode === "register") await api("/auth/register", "POST", { email, password: pw });
+            const r = await api("/auth/login", "POST", { email, password: pw });
+            localStorage.setItem("token_a", r.access_token); onAuthed();
+          } catch (e) { setErr(e.message); }
+        }
+        return (
+          <div className="wrap">
+            <div className="card" style={{ maxWidth: 380, margin: "8vh auto" }}>
+              <h1>Focus Time Tracking <span className="tag">Version A · AI</span></h1>
+              <p className="muted">{mode === "login" ? "Sign in to continue" : "Create your account"}</p>
+              <div className="row" style={{ flexDirection: "column", gap: 10 }}>
+                <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input placeholder="Password" type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
+              </div>
+              {err && <p className="err">{err}</p>}
+              <button style={{ width: "100%" }} onClick={go}>{mode === "login" ? "Sign in" : "Register"}</button>
+              <p className="muted clickable" style={{ marginTop: 12, textAlign: "center" }}
+                 onClick={() => setMode(mode === "login" ? "register" : "login")}>
+                {mode === "login" ? "No account? Register" : "Have an account? Sign in"}
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      function Dashboard({ onLogout }) {
+        const [projects, setProjects] = useState([]);
+        const [sel, setSel] = useState(null);
+        const [tasks, setTasks] = useState([]);
+        const [pname, setPname] = useState(""); const [tname, setTname] = useState("");
+        const [running, setRunning] = useState(null);
+        const [report, setReport] = useState({ by_project: [], by_day: [] });
+
+        function loadGlobal() {
+          api("/projects").then(setProjects).catch(() => {});
+          api("/time-entries").then((e) => setRunning(e.find((x) => !x.stopped_at) || null)).catch(() => {});
+          api("/reports/summary").then(setReport).catch(() => {});
+        }
+        function loadTasks(pid) { api("/projects/" + pid + "/tasks").then(setTasks).catch(() => setTasks([])); }
+        useEffect(loadGlobal, []);
+        useEffect(() => { if (sel) loadTasks(sel.id); else setTasks([]); }, [sel]);
+
+        const maxProj = Math.max(1, ...report.by_project.map((r) => r.total_seconds));
+
+        async function addProject() { if (!pname.trim()) return; await api("/projects", "POST", { name: pname.trim() }); setPname(""); loadGlobal(); }
+        async function delProject(p) { await api("/projects/" + p.id, "DELETE"); if (sel && sel.id === p.id) setSel(null); loadGlobal(); }
+        async function addTask() { if (!tname.trim()) return; await api("/projects/" + sel.id + "/tasks", "POST", { title: tname.trim() }); setTname(""); loadTasks(sel.id); }
+        async function toggle(t) { await api("/tasks/" + t.id, "PATCH", { is_done: !t.is_done }); loadTasks(sel.id); }
+        async function delTask(t) { await api("/tasks/" + t.id, "DELETE"); loadTasks(sel.id); loadGlobal(); }
+        async function start(t) { try { await api("/time-entries/start", "POST", { task_id: t.id }); loadGlobal(); } catch (e) { alert(e.message); } }
+        async function stop() { await api("/time-entries/" + running.id + "/stop", "POST"); loadGlobal(); }
+
+        return (
+          <div className="wrap">
+            <header>
+              <h1>Focus Time Tracking <span className="tag">Version A · AI</span></h1>
+              <button className="ghost" onClick={onLogout}>Log out</button>
+            </header>
+            <div className="grid">
+              <div className="card">
+                <h2>Projects</h2>
+                <div className="row"><input placeholder="New project" value={pname} onChange={(e) => setPname(e.target.value)} /><button onClick={addProject}>Add</button></div>
+                <ul>
+                  {projects.map((p) => (
+                    <li key={p.id} className={sel && sel.id === p.id ? "sel" : ""}>
+                      <span className="clickable" onClick={() => setSel(p)}>{p.name}</span>
+                      <button className="ghost" onClick={() => delProject(p)}>Delete</button>
+                    </li>
+                  ))}
+                  {projects.length === 0 && <li className="muted">No projects yet</li>}
+                </ul>
+              </div>
+
+              <div className="card">
+                <h2>{sel ? "Tasks · " + sel.name : "Tasks"}</h2>
+                {!sel && <p className="muted">Select a project</p>}
+                {sel && (
+                  <>
+                    <div className="row"><input placeholder="New task" value={tname} onChange={(e) => setTname(e.target.value)} /><button onClick={addTask}>Add</button></div>
+                    <ul>
+                      {tasks.map((t) => (
+                        <li key={t.id}>
+                          <span className={t.is_done ? "done clickable" : "clickable"} onClick={() => toggle(t)}>
+                            {t.is_done ? "✓ " : "○ "}{t.title}
+                          </span>
+                          <span style={{ display: "flex", gap: 6 }}>
+                            {running && running.task_id === t.id
+                              ? <button className="stop" onClick={stop}>Stop</button>
+                              : <button disabled={!!running} onClick={() => start(t)}>Start</button>}
+                            <button className="ghost" onClick={() => delTask(t)}>✕</button>
+                          </span>
+                        </li>
+                      ))}
+                      {tasks.length === 0 && <li className="muted">No tasks yet</li>}
+                    </ul>
+                  </>
+                )}
+              </div>
+
+              <div className="card wide">
+                <h2>Productivity report {running && <span className="pill">timer running…</span>}</h2>
+                {report.by_project.length === 0 && <p className="muted">No tracked time yet</p>}
+                {report.by_project.map((r, i) => (
+                  <div className="rep" key={i}>
+                    <span className="muted">{r.project_name}</span>
+                    <span className="bar"><span className="fill" style={{ width: (r.total_seconds / maxProj) * 100 + "%" }} /></span>
+                    <span style={{ textAlign: "right" }}>{fmt(r.total_seconds)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function App() {
+        const [token, setToken] = useState(localStorage.getItem("token_a"));
+        if (!token) return <Auth onAuthed={() => setToken(localStorage.getItem("token_a"))} />;
+        return <Dashboard onLogout={() => { localStorage.removeItem("token_a"); setToken(null); }} />;
+      }
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
