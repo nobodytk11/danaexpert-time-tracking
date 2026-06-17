@@ -313,3 +313,8 @@ def summary(user=Depends(current_user), s=Depends(db)):
         ],
         "by_day": [{"day": str(r[0]), "total_seconds": int(r[1])} for r in by_day],
     }
+
+
+@app.get("/")
+def root():
+    return {"app": "Focus Time Tracking API (version A - AI)", "docs": "/docs"}
